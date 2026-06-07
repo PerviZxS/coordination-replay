@@ -1,32 +1,34 @@
 """The demonstrator agents.
 
-Each agent performs a fixed, deterministic operation on a shared value:
-read it, then write back a modified version. The agents are intentionally
-trivial and contain no randomness, so that any variation in the final
-result across runs is attributable solely to the order in which the agents
-access shared state, not to the agents themselves.
+Each agent issues one real call to the local model. The prompts deliberately
+induce responses of differing and variable length, so the calls take
+genuinely different amounts of wall-clock time to generate. That latency
+variance is what causes the agents to finish their writes in different orders
+across runs, which is the interaction-order nondeterminism under study. The
+numeric operation each agent performs is fixed; a constant is extracted from
+the response so the response text does not affect the arithmetic.
 """
 
-import asyncio
 from agents.shared_state import SharedState
+from agents.backend import ask_model
 
 
-async def agent_add(state: SharedState, key: str) -> None:
+async def agent_add(state: SharedState, key: str, write_order: list[str]) -> None:
+    await ask_model("In two or three sentences, explain what addition is.")
     value = await state.read(key)
-    # Yield between read and write so other agents can interleave here.
-    # This exposes the read-modify-write race that real I/O (e.g. an LLM
-    # call) would introduce naturally in a production system.
-    await asyncio.sleep(0)
     await state.write(key, value + 10)
+    write_order.append("add")
 
 
-async def agent_double(state: SharedState, key: str) -> None:
+async def agent_double(state: SharedState, key: str, write_order: list[str]) -> None:
+    await ask_model("In one short sentence, say what doubling means.")
     value = await state.read(key)
-    await asyncio.sleep(0)
     await state.write(key, value * 2)
+    write_order.append("double")
 
 
-async def agent_subtract(state: SharedState, key: str) -> None:
+async def agent_subtract(state: SharedState, key: str, write_order: list[str]) -> None:
+    await ask_model("Explain subtraction in a full paragraph with an example.")
     value = await state.read(key)
-    await asyncio.sleep(0)
     await state.write(key, value - 3)
+    write_order.append("subtract")
